@@ -57,19 +57,9 @@ func (config SuiteAPI) send(method string, path string, body string) (string, st
 	return status, string(responseBody)
 }
 
-
-
-
-
-
-
-func CompareFields(response string,fields EmarsysFields)(map[string]string,error){
-
+func CompareFields(response string, fields EmarsysFields) (map[string]string, error) {
 
 	missing_fields := make(map[string]string)
-
-
-
 
 	end_result := strings.Replace(response, "null", `""`, -1)
 
@@ -77,17 +67,13 @@ func CompareFields(response string,fields EmarsysFields)(map[string]string,error
 
 	contact_data := Suite_Contact_Response{}
 
-	err :=json.Unmarshal([]byte(end_result),&contact_data)
+	err := json.Unmarshal([]byte(end_result), &contact_data)
 
-	if err !=nil {
-
+	if err != nil {
 
 		fmt.Println(err)
 
 	}
-
-
-
 
 	if len(contact_data.Data.Result) > 1 {
 
@@ -100,11 +86,9 @@ func CompareFields(response string,fields EmarsysFields)(map[string]string,error
 					_, ok2 := contact_data.Data.Result[y].(map[string]interface{})[strconv.Itoa(fields.Data[u].ID)].(string)
 					if ok2 {
 
-
 						if contact_data.Data.Result[0].(map[string]interface{})[strconv.Itoa(fields.Data[u].ID)] == "" &&
-							contact_data.Data.Result[y].(map[string]interface{})[strconv.Itoa(fields.Data[u].ID)] != "" {
-
-
+							contact_data.Data.Result[y].(map[string]interface{})[strconv.Itoa(fields.Data[u].ID)] != "" &&
+							fields.Data[u].ApplicationType != "special" {
 
 							missing_fields[strconv.Itoa(fields.Data[u].ID)] = contact_data.Data.Result[y].(map[string]interface{})[strconv.Itoa(fields.Data[u].ID)].(string)
 
@@ -117,38 +101,32 @@ func CompareFields(response string,fields EmarsysFields)(map[string]string,error
 
 		}
 
-		return missing_fields,nil
+		return missing_fields, nil
 
-	}else if len(contact_data.Data.Result) ==1 {
+	} else if len(contact_data.Data.Result) == 1 {
 
 		panic(errors.New("no duplicates found to merge -  single contact found"))
 
-
-
-	}else{
+	} else {
 
 		panic(errors.New("Empty data"))
 
 	}
 }
 
-
-func (EData EdeData)CreateContactList(contact_id string,list_name string)error{
-
-
+func (EData EdeData) CreateContactList(contact_id string, list_name string) error {
 
 	_, cl_creation_req := EData.Emarsys_auth.send("POST", "contactlist",
-	`{
+		`{
 							  "key_id": "id",
-							  "name": "`+ list_name +`",
+							  "name": "`+list_name+`",
 							  "description": "`+`Erased duplicates list_`+time.Now().Format("2006-01-02 15:04:05")+`",
 							  "external_ids": [
-							"`+ contact_id +`"
+							"`+contact_id+`"
 							  ]
 							}`)
 
 	fmt.Println(cl_creation_req)
-
 
 	cl_creation_req = strings.Replace(cl_creation_req, `,"data":""`, "", -1)
 
@@ -157,17 +135,14 @@ func (EData EdeData)CreateContactList(contact_id string,list_name string)error{
 	err := json.Unmarshal([]byte(cl_creation_req), &cl_response)
 	if err != nil {
 
-	fmt.Println(err)
+		fmt.Println(err)
 
 	}
 
-
-
 	if cl_response.ReplyCode != 0 {
 
-
-	fmt.Println(cl_response.Data.Errors)
-	return errors.New("ContactList has not been created\n")
+		fmt.Println(cl_response.Data.Errors)
+		return errors.New("ContactList has not been created\n")
 
 	}
 
@@ -175,9 +150,7 @@ func (EData EdeData)CreateContactList(contact_id string,list_name string)error{
 
 }
 
-func (EData EdeData) GetByLastAdded(searchValue string)([]int,error){
-
-
+func (EData EdeData) GetByLastAdded(searchValue string) ([]int, error) {
 
 	dups_json := ReturnedDupsList{}
 
@@ -188,7 +161,7 @@ func (EData EdeData) GetByLastAdded(searchValue string)([]int,error){
 	if err != nil {
 		fmt.Println("result: " + returnedDups)
 		fmt.Println("url: " + "contact/query/?" + "return=31" + "&" + EData.SearchField + "=" + searchValue)
-		return []int{},err
+		return []int{}, err
 
 	}
 
@@ -200,7 +173,7 @@ func (EData EdeData) GetByLastAdded(searchValue string)([]int,error){
 
 		if err != nil {
 
-			return []int{} , errors.New("non integer contact_id found \n" + "please report to TCS\n" + "contact_id: " + dups_json.Data.Result[k].ID)
+			return []int{}, errors.New("non integer contact_id found \n" + "please report to TCS\n" + "contact_id: " + dups_json.Data.Result[k].ID)
 
 		}
 
@@ -213,15 +186,11 @@ func (EData EdeData) GetByLastAdded(searchValue string)([]int,error){
 		return dups_slice[j] < dups_slice[i]
 	})
 
-
-	return dups_slice,nil
-
-
+	return dups_slice, nil
 
 }
 
-func (EData EdeData) GetByDateField(searchValue string)(Date_dups_slice,error){
-
+func (EData EdeData) GetByDateField(searchValue string) (Date_dups_slice, error) {
 
 	_, returnedDups := EData.Emarsys_auth.send("GET", "contact/query/?"+EData.SearchField+"="+searchValue+"&"+"return="+EData.MergeRules.ByDateField, "")
 
@@ -237,10 +206,6 @@ func (EData EdeData) GetByDateField(searchValue string)(Date_dups_slice,error){
 
 	}
 
-
-
-
-
 	dateDupsSlice := Date_dups_slice{}
 
 	for j := range dupsByDate.Data.Result {
@@ -249,8 +214,7 @@ func (EData EdeData) GetByDateField(searchValue string)(Date_dups_slice,error){
 
 		if err != nil {
 
-
-			return Date_dups_slice{},errors.New("duplicate with contact_id = " + dupsByDate.Data.Result[j].ID + " has empty field instead of date field")
+			return Date_dups_slice{}, errors.New("duplicate with contact_id = " + dupsByDate.Data.Result[j].ID + " has empty field instead of date field")
 
 		}
 
@@ -263,42 +227,35 @@ func (EData EdeData) GetByDateField(searchValue string)(Date_dups_slice,error){
 
 	})
 
-	return dateDupsSlice,nil
+	return dateDupsSlice, nil
 
 }
 
-
-func(EData EdeData)UpdateContactMissingFields(missing_fields map[string]string, main_contact string)error{
+func (EData EdeData) UpdateContactMissingFields(missing_fields map[string]string, main_contact string) error {
 
 	var updateStr string
 
-	for k,v := range missing_fields{
+	for k, v := range missing_fields {
 
 		updateStr += `"` + k + `"` + ":" + `"` + v + `",`
 
 	}
 
-
-
 	updateStr = `{"key_id": "id","contacts":[{"id":` + `"` + main_contact + `",` + updateStr[0:len(updateStr)-1] + `}]}`
 	fmt.Println(updateStr)
-	statusCode,response :=EData.Emarsys_auth.send("PUT", "contact", updateStr)
+	statusCode, response := EData.Emarsys_auth.send("PUT", "contact", updateStr)
 
 	if statusCode != "200" {
 
-
 		return errors.New(response)
-
-
 
 	}
 
-return nil
+	return nil
 
 }
 
-func(EData EdeData) GetEmarsysFields()error{
-
+func (EData EdeData) GetEmarsysFields() error {
 
 	//returns fields list into global variable emarsysFields
 
@@ -315,32 +272,28 @@ func(EData EdeData) GetEmarsysFields()error{
 	return nil
 }
 
-
-func JSON_FIX(json string)string{
+func JSON_FIX(json string) string {
 
 	json = strings.Replace(json, "null", `""`, -1)
 	json = strings.Replace(json, "Null", `""`, -1)
 
 	return json
 
-
 }
 
+func GetFieldName(emarsysFields EmarsysFields, fieldId string) (string, error) {
 
-func GetFieldName(emarsysFields EmarsysFields, fieldId string)(string,error){
+	for i := range emarsysFields.Data {
 
-	for i:=range emarsysFields.Data{
+		if fieldId == strconv.Itoa(emarsysFields.Data[i].ID) {
 
-		if fieldId == strconv.Itoa(emarsysFields.Data[i].ID){
-
-			return emarsysFields.Data[i].Name,nil
+			return emarsysFields.Data[i].Name, nil
 
 		}
 
 	}
 
-	return "",errors.New("Field ID not found")
-
+	return "", errors.New("Field ID not found")
 
 }
 
@@ -379,4 +332,3 @@ func (Auth SuiteAPI) CheckAuth() (bool, error) {
 	}
 
 }
-

@@ -12,7 +12,6 @@ var emarsysFields EmarsysFields
 
 type EDE interface {
 	FindDuplicates(searchValue string) error
-
 }
 
 func (EData EdeData) FindDuplicates(searchValue string) error {
@@ -33,229 +32,164 @@ func (EData EdeData) FindDuplicates(searchValue string) error {
 
 		}
 
+		if EData.MergeRules.LastAdded {
+			if EData.MergeRules.UpdateEmptyField {
 
+				dups_slice, err := EData.GetByLastAdded(searchValue)
 
+				if err != nil {
 
+					panic(err)
 
-			if EData.MergeRules.LastAdded {
-				if EData.MergeRules.UpdateEmptyField 	{
+				}
 
-			dups_slice,err := EData.GetByLastAdded(searchValue)
+				var dupsSliceStr string
 
-			if err !=nil{
+				for h := range dups_slice {
 
-				panic(err)
+					dupsSliceStr += `"` + strconv.Itoa(dups_slice[h]) + `",`
 
-			}
+				}
 
-					var dupsSliceStr string
-
-					for h := range dups_slice {
-
-						dupsSliceStr += `"` + strconv.Itoa(dups_slice[h]) + `",`
-
-					}
-
-					dataRequest := `{
+				dataRequest := `{
 										  "keyId": "id",
 										  "keyValues": [` +
-						dupsSliceStr[0:len(dupsSliceStr)-1] +
-						`]
+					dupsSliceStr[0:len(dupsSliceStr)-1] +
+					`]
 										}`
 
-					_, result := EData.Emarsys_auth.send("POST", "contact/getdata", dataRequest)
+				_, result := EData.Emarsys_auth.send("POST", "contact/getdata", dataRequest)
 
-					result = JSON_FIX(result)
+				result = JSON_FIX(result)
 
+				err3 := EData.GetEmarsysFields()
 
+				if err3 != nil {
 
-					err3 := EData.GetEmarsysFields()
+					fmt.Println(err)
 
-					if err3 != nil {
+				}
 
-						fmt.Println(err)
+				missing_fields, err := CompareFields(result, emarsysFields)
 
-					}
+				if err != nil {
 
-					missing_fields, err:=	CompareFields(result,emarsysFields)
+					panic(err)
 
-					if err !=nil{
+				}
 
-						panic(err)
-
-					}
-
-
-
-
-
-					if len(emarsysFields.Data) > 0 {
-
-
-
-						for l := 1; l <= len(dups_slice) -1; l++ {
-
-							EData.Emarsys_auth.send("POST", "contact/delete", `{ "key_id": "id", "id": "`+strconv.Itoa(dups_slice[l])+`" }`)
-
-						}
-
-						switch EData.MergeRules.CreateContactList {
-
-						case true:
-						err := EData.CreateContactList(searchValue,"Merged duplicates " + time.Now().Format("2006-01-02"))
-
-
-								if err !=nil {
-
-									panic(err)
-								}
-
-
-								err = EData.UpdateContactMissingFields(missing_fields,strconv.Itoa(dups_slice[0]))
-
-						case false:
-
-
-							err = EData.UpdateContactMissingFields(missing_fields,strconv.Itoa(dups_slice[0]))
-
-							if err !=nil {
-
-
-								panic(err)
-
-							}
-						}
-
-					} else {
-
-						return errors.New("list of fields is empty")
-
-					}
-
-				}else {
-					dups_slice,err :=EData.GetByLastAdded(searchValue)
-
-					if err !=nil{
-
-
-						panic(err)
-
-					}
+				if len(emarsysFields.Data) > 0 {
 
 					for l := 1; l <= len(dups_slice)-1; l++ {
 
 						EData.Emarsys_auth.send("POST", "contact/delete", `{ "key_id": "id", "id": "`+strconv.Itoa(dups_slice[l])+`" }`)
 
 					}
-				}
-			} else if EData.MergeRules.ByDateField != "" && EData.MergeRules.LastAdded {
 
-				return errors.New("logical error:\n two mutually exclusive conditions")
+					switch EData.MergeRules.CreateContactList {
 
-			} else if EData.MergeRules.ByDateField != "" {
+					case true:
+						err := EData.CreateContactList(searchValue, "Merged duplicates "+time.Now().Format("2006-01-02"))
 
-				_, err := strconv.Atoi(EData.MergeRules.ByDateField)
-
-				if err != nil {
-
-					return errors.New("provided date field_id is not an integer: " + EData.MergeRules.ByDateField)
-
-				}
-
-				if EData.MergeRules.UpdateEmptyField {
-
-
-
-					dateDupsSlice,err := EData.GetByDateField(searchValue)
-
-
-					if err !=nil {
-
-						panic(err)
-
-					}
-
-
-					var dupsSliceStr string
-
-					for h := range dateDupsSlice {
-
-						dupsSliceStr += `"` + dateDupsSlice[h].ID + `",`
-
-					}
-
-					dataRequest := `{
-										  "keyId": "id",
-										  "keyValues": [` +
-						dupsSliceStr[0:len(dupsSliceStr)-1] +
-						`]
-										}`
-
-					_, result := EData.Emarsys_auth.send("POST", "contact/getdata", dataRequest)
-
-					result = JSON_FIX(result)
-
-					err4 := EData.GetEmarsysFields()
-
-					if err4 !=nil{
-
-						panic(err)
-
-					}
-
-					if len(emarsysFields.Data) > 0 {
-
-						missing_fields,err := CompareFields(result,emarsysFields)
-
-
-						if err !=nil{
+						if err != nil {
 
 							panic(err)
+						}
+
+						err2 := EData.UpdateContactMissingFields(missing_fields, strconv.Itoa(dups_slice[0]))
+
+						if err2 != nil {
+
+							fmt.Println(err2)
 
 						}
 
-						err6 :=EData.UpdateContactMissingFields(missing_fields,dateDupsSlice[0].ID)
+					case false:
 
-						if err6 != nil {
+						err3 := EData.UpdateContactMissingFields(missing_fields, strconv.Itoa(dups_slice[0]))
 
-							fmt.Println(err)
+						if err3 != nil {
 
-						}
-
-
-						for l := 1; l <= len(dateDupsSlice) -1; l++ {
-
-							EData.Emarsys_auth.send("POST", "contact/delete", `{ "key_id": "id", "id": "`+dateDupsSlice[l].ID+`" }`)
+							panic(err3)
 
 						}
-
-
-
-						switch EData.MergeRules.CreateContactList {
-
-						case true:
-
-							fieldName, err := GetFieldName(emarsysFields, EData.MergeRules.ByDateField)
-
-							err7 := EData.CreateContactList(dateDupsSlice[0].ID, "Duplicates by date field "+fieldName+" "+time.Now().Format("2006-01-02"))
-
-							if err != nil {
-
-								panic(err7)
-
-							}
-
-						}
-
-					} else {
-
-						return errors.New("list of fields is empty")
-
 					}
 
 				} else {
 
-					dateDupsSlice,err := EData.GetByDateField(searchValue)
+					return errors.New("list of fields is empty")
+
+				}
+
+			} else {
+				dups_slice, err := EData.GetByLastAdded(searchValue)
+
+				if err != nil {
+
+					panic(err)
+
+				}
+
+				for l := 1; l <= len(dups_slice)-1; l++ {
+
+					EData.Emarsys_auth.send("POST", "contact/delete", `{ "key_id": "id", "id": "`+strconv.Itoa(dups_slice[l])+`" }`)
+
+				}
+			}
+		} else if EData.MergeRules.ByDateField != "" && EData.MergeRules.LastAdded {
+
+			return errors.New("logical error:\n two mutually exclusive conditions")
+
+		} else if EData.MergeRules.ByDateField != "" {
+
+			_, err := strconv.Atoi(EData.MergeRules.ByDateField)
+
+			if err != nil {
+
+				return errors.New("provided date field_id is not an integer: " + EData.MergeRules.ByDateField)
+
+			}
+
+			if EData.MergeRules.UpdateEmptyField {
+
+				dateDupsSlice, err := EData.GetByDateField(searchValue)
+
+				if err != nil {
+
+					panic(err)
+
+				}
+
+				var dupsSliceStr string
+
+				for h := range dateDupsSlice {
+
+					dupsSliceStr += `"` + dateDupsSlice[h].ID + `",`
+
+				}
+
+				dataRequest := `{
+										  "keyId": "id",
+										  "keyValues": [` +
+					dupsSliceStr[0:len(dupsSliceStr)-1] +
+					`]
+										}`
+
+				_, result := EData.Emarsys_auth.send("POST", "contact/getdata", dataRequest)
+
+				result = JSON_FIX(result)
+
+				err4 := EData.GetEmarsysFields()
+
+				if err4 != nil {
+
+					panic(err)
+
+				}
+
+				if len(emarsysFields.Data) > 0 {
+
+					missing_fields, err := CompareFields(result, emarsysFields)
 
 					if err != nil {
 
@@ -263,13 +197,55 @@ func (EData EdeData) FindDuplicates(searchValue string) error {
 
 					}
 
+					err6 := EData.UpdateContactMissingFields(missing_fields, dateDupsSlice[0].ID)
 
+					if err6 != nil {
 
-					for l := 1; l <= len(dateDupsSlice) -1; l++ {
+						fmt.Println(err)
+
+					}
+
+					for l := 1; l <= len(dateDupsSlice)-1; l++ {
 
 						EData.Emarsys_auth.send("POST", "contact/delete", `{ "key_id": "id", "id": "`+dateDupsSlice[l].ID+`" }`)
 
 					}
+
+					switch EData.MergeRules.CreateContactList {
+
+					case true:
+
+						fieldName, err := GetFieldName(emarsysFields, EData.MergeRules.ByDateField)
+
+						err7 := EData.CreateContactList(dateDupsSlice[0].ID, "Duplicates by date field "+fieldName+" "+time.Now().Format("2006-01-02"))
+
+						if err != nil {
+
+							panic(err7)
+
+						}
+
+					}
+
+				} else {
+
+					return errors.New("list of fields is empty")
+
+				}
+
+			} else {
+
+				dateDupsSlice, err := EData.GetByDateField(searchValue)
+
+				if err != nil {
+
+					panic(err)
+
+				}
+
+				for l := 1; l <= len(dateDupsSlice)-1; l++ {
+
+					EData.Emarsys_auth.send("POST", "contact/delete", `{ "key_id": "id", "id": "`+dateDupsSlice[l].ID+`" }`)
 
 				}
 
@@ -277,7 +253,7 @@ func (EData EdeData) FindDuplicates(searchValue string) error {
 
 		}
 
+	}
 
 	return nil
 }
-
