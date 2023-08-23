@@ -68,22 +68,25 @@ func (EData EdeData) FindDuplicatesExclude(searchValue string) error {
 
 			for j := range get_Data.Data.Result {
 
-				_, ok := get_Data.Data.Result[j].(map[string]string)
+				_, ok := get_Data.Data.Result[j].(map[string]interface{})
 				if ok && len(get_Data.Data.Result) > 0 {
 
+					fmt.Println("Значение из полученного списка по getData",get_Data.Data.Result[j].(map[string]interface{})[EData.Exclude.FieldId])
+
+
 					if EData.Exclude.FieldId != "" && !EData.Exclude.FieldValue.Null &&
-						get_Data.Data.Result[j].(map[string]string)[EData.Exclude.FieldId] != "" {
+						get_Data.Data.Result[j].(map[string]interface{})[EData.Exclude.FieldId] != "" {
 
 						continue
 
 					} else if EData.Exclude.FieldId != "" && EData.Exclude.FieldValue.Null &&
-						get_Data.Data.Result[j].(map[string]string)[EData.Exclude.FieldId] == "" {
+						get_Data.Data.Result[j].(map[string]interface{})[EData.Exclude.FieldId] == "" {
 
 						continue
 
 					} else {
 
-						EData.Emarsys_auth.send("POST", "contact/delete", `{ "key_id": "id", "id": "`+get_Data.Data.Result[j].(map[string]string)["id"]+`" }`)
+						EData.Emarsys_auth.send("POST", "contact/delete", `{ "key_id": "id", "id": "`+get_Data.Data.Result[j].(map[string]interface{})["id"].(string) +`" }`)
 
 					}
 
