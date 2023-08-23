@@ -72,6 +72,7 @@ func CompareFields(response string, fields EmarsysFields) (map[string]string, er
 	if err != nil {
 
 		fmt.Println(err)
+		return nil, errors.New("Empty data")
 
 	}
 
@@ -88,7 +89,7 @@ func CompareFields(response string, fields EmarsysFields) (map[string]string, er
 
 						if contact_data.Data.Result[0].(map[string]interface{})[strconv.Itoa(fields.Data[u].ID)] == "" &&
 							contact_data.Data.Result[y].(map[string]interface{})[strconv.Itoa(fields.Data[u].ID)] != "" &&
-							fields.Data[u].ApplicationType != "special" {
+							fields.Data[u].ApplicationType != "special" && fields.Data[u].ApplicationType != "voucher" {
 
 							missing_fields[strconv.Itoa(fields.Data[u].ID)] = contact_data.Data.Result[y].(map[string]interface{})[strconv.Itoa(fields.Data[u].ID)].(string)
 
@@ -105,13 +106,15 @@ func CompareFields(response string, fields EmarsysFields) (map[string]string, er
 
 	} else if len(contact_data.Data.Result) == 1 {
 
-		panic(errors.New("no duplicates found to merge -  single contact found"))
+		fmt.Println(errors.New("no duplicates found to merge -  single contact found"))
 
 	} else {
 
-		panic(errors.New("Empty data"))
+		fmt.Println(errors.New("Empty data"))
 
 	}
+
+	return nil, errors.New("Empty data")
 }
 
 func (EData EdeData) CreateContactList(contact_id string, list_name string) error {
@@ -155,6 +158,8 @@ func (EData EdeData) GetByLastAdded(searchValue string) ([]int, error) {
 	dups_json := ReturnedDupsList{}
 
 	_, returnedDups := EData.Emarsys_auth.send("GET", "contact/query/?"+"return=31"+"&"+EData.SearchField+"="+searchValue, "")
+
+	returnedDups = JSON_FIX(returnedDups)
 
 	err := json.Unmarshal([]byte(returnedDups), &dups_json)
 
@@ -240,18 +245,23 @@ func (EData EdeData) UpdateContactMissingFields(missing_fields map[string]string
 		updateStr += `"` + k + `"` + ":" + `"` + v + `",`
 
 	}
+	if len(updateStr) > 0 {
+		updateStr = `{"key_id": "id","contacts":[{"id":` + `"` + main_contact + `",` + updateStr[0:len(updateStr)-1] + `}]}`
+		fmt.Println(updateStr)
+		statusCode, response := EData.Emarsys_auth.send("PUT", "contact", updateStr)
 
-	updateStr = `{"key_id": "id","contacts":[{"id":` + `"` + main_contact + `",` + updateStr[0:len(updateStr)-1] + `}]}`
-	fmt.Println(updateStr)
-	statusCode, response := EData.Emarsys_auth.send("PUT", "contact", updateStr)
+		if statusCode != "200" {
 
-	if statusCode != "200" {
+			return errors.New(response)
 
-		return errors.New(response)
+		}
+
+		return nil
+	} else {
+
+		return errors.New("Empty data")
 
 	}
-
-	return nil
 
 }
 
@@ -276,7 +286,8 @@ func JSON_FIX(json string) string {
 
 	json = strings.Replace(json, "null", `""`, -1)
 	json = strings.Replace(json, "Null", `""`, -1)
-
+	json = strings.Replace(json, "<", `""`, -1)
+	json = strings.Replace(json, ">", `""`, -1)
 	return json
 
 }
