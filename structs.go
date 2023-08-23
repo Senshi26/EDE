@@ -11,6 +11,7 @@ type EdeData struct {
 	Emarsys_auth SuiteAPI
 	SearchField  string
 	MergeRules   MergeRules
+	Exclude      Exclude
 }
 
 type MergeRules struct {
@@ -18,6 +19,24 @@ type MergeRules struct {
 	ByDateField       string
 	UpdateEmptyField  bool
 	CreateContactList bool
+}
+
+type Exclude struct {
+	FieldId    string
+	FieldValue Field_value
+}
+
+type Field_value struct {
+	Null bool
+}
+
+type DataQueryResponse struct {
+	Data struct {
+		Errors []interface{} `json:"errors"`
+		Result []interface{} `json:"result"`
+	} `json:"data"`
+	ReplyCode int64  `json:"replyCode"`
+	ReplyText string `json:"replyText"`
 }
 
 type Settings struct {
@@ -90,7 +109,7 @@ type Suite_Contact_Response struct {
 type Cl_response struct {
 	Data struct {
 		Errors []interface{} `json:"errors,omitempty"`
-		ID     int        `json:"id,omitempty"`
+		ID     int           `json:"id,omitempty"`
 	} `json:"data,omitempty"`
 	ReplyCode int    `json:"replyCode"`
 	ReplyText string `json:"replyText"`
