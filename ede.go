@@ -1,9 +1,10 @@
 package ede
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
-
 	"strconv"
 	"time"
 )
@@ -12,6 +13,87 @@ var emarsysFields EmarsysFields
 
 type EDE interface {
 	FindDuplicates(searchValue string) error
+	FindDuplicatesExclude(searchValue string) error
+}
+
+func (EData EdeData) FindDuplicatesExclude(searchValue string) error {
+
+	checkAuth, err := EData.Emarsys_auth.CheckAuth()
+
+	if err != nil {
+
+		return err
+
+	} else if checkAuth {
+
+		if EData.Exclude.FieldId != "" {
+
+			dups_list, err := EData.GetByLastAdded(searchValue)
+
+			if err != nil {
+
+				fmt.Println(err)
+				return err
+			}
+			str_start := `{
+  "keyId": "id",
+  "keyValues": [
+    `
+
+			str_mid := ""
+
+			for i := range dups_list {
+
+				str_mid += `"` + strconv.Itoa(dups_list[i]) + "\","
+
+			}
+
+			str_end := `],
+  "fields": [
+    "3","` + EData.Exclude.FieldId + `"
+  ]
+}`
+
+			full_str := str_start + str_mid[:len(str_mid)-1] + str_end
+
+			fmt.Println(full_str)
+
+			_, get_emails := EData.Emarsys_auth.send("POST", "contact/getdata", full_str)
+
+			var get_Data DataQueryResponse
+
+			get_emails = JSON_FIX(get_emails)
+
+			json.Unmarshal([]byte(get_emails), &get_Data)
+
+			for j := range get_Data.Data.Result {
+
+				_, ok := get_Data.Data.Result[j].(map[string]string)
+				if ok && len(get_Data.Data.Result) > 0 {
+
+					if EData.Exclude.FieldId != "" && !EData.Exclude.FieldValue.Null &&
+						get_Data.Data.Result[j].(map[string]string)[EData.Exclude.FieldId] != "" {
+
+						continue
+
+					} else if EData.Exclude.FieldId != "" && EData.Exclude.FieldValue.Null &&
+						get_Data.Data.Result[j].(map[string]string)[EData.Exclude.FieldId] == "" {
+
+						continue
+
+					} else {
+
+						EData.Emarsys_auth.send("POST", "contact/delete", `{ "key_id": "id", "id": "`+get_Data.Data.Result[j].(map[string]string)["id"]+`" }`)
+
+					}
+
+				}
+
+			}
+		}
+
+	}
+	return nil
 }
 
 func (EData EdeData) FindDuplicates(searchValue string) error {
@@ -39,42 +121,57 @@ func (EData EdeData) FindDuplicates(searchValue string) error {
 
 				if err != nil {
 
-					panic(err)
+					fmt.Println(err)
 
 				}
 
 				var dupsSliceStr string
 
-				for h := range dups_slice {
+				missing_fields := make(map[string]string)
 
-					dupsSliceStr += `"` + strconv.Itoa(dups_slice[h]) + `",`
+				if len(dups_slice) > 0 {
 
-				}
+					for h := range dups_slice {
 
-				dataRequest := `{
+						dupsSliceStr += `"` + strconv.Itoa(dups_slice[h]) + `",`
+
+					}
+
+					dataRequest := `{
 										  "keyId": "id",
 										  "keyValues": [` +
-					dupsSliceStr[0:len(dupsSliceStr)-1] +
-					`]
+						dupsSliceStr[0:len(dupsSliceStr)-1] +
+						`]
 										}`
 
-				_, result := EData.Emarsys_auth.send("POST", "contact/getdata", dataRequest)
+					_, result := EData.Emarsys_auth.send("POST", "contact/getdata", dataRequest)
 
-				result = JSON_FIX(result)
+					bf := bytes.NewBuffer([]byte{})
+					jsonEncoder := json.NewEncoder(bf)
+					jsonEncoder.SetEscapeHTML(false)
+					jsonEncoder.Encode(result)
 
-				err3 := EData.GetEmarsysFields()
+					result = JSON_FIX(result)
 
-				if err3 != nil {
+					err3 := EData.GetEmarsysFields()
 
-					fmt.Println(err)
+					if err3 != nil {
 
-				}
+						fmt.Println(err)
 
-				missing_fields, err := CompareFields(result, emarsysFields)
+					}
 
-				if err != nil {
+					missing_fields, err = CompareFields(result, emarsysFields)
 
-					panic(err)
+					if err != nil {
+
+						fmt.Println(err)
+
+					}
+
+				} else {
+
+					return errors.New("No duplicates found")
 
 				}
 
@@ -110,7 +207,7 @@ func (EData EdeData) FindDuplicates(searchValue string) error {
 
 						if err3 != nil {
 
-							panic(err3)
+							fmt.Println(err3)
 
 						}
 					}
@@ -156,7 +253,7 @@ func (EData EdeData) FindDuplicates(searchValue string) error {
 
 				if err != nil {
 
-					panic(err)
+					fmt.Println(err)
 
 				}
 
@@ -193,7 +290,7 @@ func (EData EdeData) FindDuplicates(searchValue string) error {
 
 					if err != nil {
 
-						panic(err)
+						fmt.Println(err)
 
 					}
 
